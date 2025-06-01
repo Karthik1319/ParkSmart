@@ -2,11 +2,11 @@ import { auth } from '@/services/firebase';
 import { User } from '@/types/user';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import dotenv from 'dotenv';
+// import dotenv from 'dotenv';
 import { router } from 'expo-router';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-dotenv.config();
+// dotenv.config();
 
 
 // Configure Google Sign In

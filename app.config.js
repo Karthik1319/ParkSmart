@@ -10,8 +10,7 @@ export default {
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
-      supportsTablet: true,
-      googleServicesFile: "./GoogleService-Info.plist"
+      supportsTablet: true
     },
     android: {
       package: "com.karthik.parksmart",
@@ -46,6 +45,16 @@ export default {
         },
       ],
       "expo-font",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            googleMaps: {
+              apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+            },
+          },
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
@@ -67,3 +76,4 @@ export default {
     }
   },
 };
+
