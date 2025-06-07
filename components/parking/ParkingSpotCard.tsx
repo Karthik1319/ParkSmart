@@ -4,7 +4,7 @@ import { ParkingSpot } from '@/types/parking';
 import { formatDistance, formatTime } from '@/utils/distance';
 import { Archive, Banknote, BatteryCharging, Car, Clock, Layers, Leaf, MapPin, Navigation, ShieldCheck, Star, Sun, X } from 'lucide-react-native';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ParkingSpotCardProps = {
@@ -14,10 +14,9 @@ type ParkingSpotCardProps = {
 
 export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps) {
   const { theme } = useTheme();
-  const { bookSpot, loading } = useParking();
+  const { bookSpot, loading, userLocation } = useParking();
   const insets = useSafeAreaInsets();
-  
-  // Get icon based on parking type
+
   const getTypeIcon = () => {
     switch (spot.type) {
       case 'handicapped':
@@ -41,42 +40,108 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
         return <Car size={16} color={theme.text.inverse} />;
     }
   };
-  
-  // Book this parking spot
+
   const handleBookSpot = async () => {
     if (!spot.available) return;
-    await bookSpot(spot.id);
-    onClose();
+    try {
+      const success = await bookSpot(spot.id);
+      if (success) {
+        Alert.alert('Success', 'Parking spot booked successfully!');
+        onClose();
+      } else {
+        Alert.alert('Error', 'Failed to book parking spot. Please try again.');
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      Alert.alert('Error', 'An error occurred while booking. Please try again.');
+    }
   };
-  
+
+  const handleNavigation = async () => {
+    if (!spot.coordinates) {
+      Alert.alert('Error', 'Location coordinates not available for this spot.');
+      return;
+    }
+
+    const { latitude, longitude } = spot.coordinates;
+    const destination = `${latitude},${longitude}`;
+    const label = encodeURIComponent(spot.name);
+    let url = '';
+
+    try {
+      if (Platform.OS === 'ios') {
+        url = `maps://app?daddr=${destination}&dirflg=d`;
+        const canOpenAppleMaps = await Linking.canOpenURL(url);
+        if (!canOpenAppleMaps) {
+          url = `comgooglemaps://?daddr=${destination}&directionsmode=driving`;
+          const canOpenGoogleMaps = await Linking.canOpenURL(url);
+          if (!canOpenGoogleMaps) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+          }
+        }
+      } else {
+        url = `google.navigation:q=${destination}&mode=d`;
+        const canOpenGoogleMaps = await Linking.canOpenURL(url);
+        if (!canOpenGoogleMaps) {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+        }
+      }
+
+      if (userLocation && url.includes('google.com')) {
+        const origin = `${userLocation.coords.latitude},${userLocation.coords.longitude}`;
+        url += `&origin=${origin}`;
+      }
+
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert(
+        'Navigation Error',
+        'Unable to open navigation app. Please check if you have a maps app installed.',
+        [
+          {
+            text: 'Open in Browser',
+            onPress: () => {
+              const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+              Linking.openURL(webUrl);
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Close button */}
-      <TouchableOpacity 
-        style={[styles.closeButton, { backgroundColor: theme.background.secondary }]} 
-        onPress={onClose}
-      >
-        <X size={20} color={theme.text.primary} />
-      </TouchableOpacity>
-      
-      {/* Spot image */}
-      {spot.images && spot.images.length > 0 ? (
-        <Image 
-          source={{ uri: spot.images[0] }} 
-          style={styles.spotImage}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.spotImagePlaceholder, { backgroundColor: theme.neutral[300] }]} />
-      )}
-      
-      {/* Spot details */}
-      <View style={[styles.detailsContainer, { paddingBottom: insets.bottom + 55 }]}>
+      <View style={[styles.imageWrapper, { paddingTop: insets.top }]}>
+        {spot.images && spot.images.length > 0 ? (
+          <Image
+            source={{ uri: spot.images[0] }}
+            style={styles.spotImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.spotImagePlaceholder, { backgroundColor: theme.neutral[300] }]} />
+        )}
+
+        <TouchableOpacity
+          style={[styles.closeButtonOverlay, { backgroundColor: theme.background.secondary }]}
+          onPress={onClose}
+        >
+          <X size={20} color={theme.text.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.detailsContainer, { paddingBottom: insets.bottom + 45 }]}>
         <View style={styles.nameRow}>
-          <Text style={[styles.spotName, { color: theme.text.primary }]}>
-            {spot.name}
-          </Text>
-          
+          <Text style={[styles.spotName, { color: theme.text.primary }]}>{spot.name}</Text>
           {spot.rating && (
             <View style={styles.ratingContainer}>
               <Star size={16} color={theme.accent.default} fill={theme.accent.default} />
@@ -91,15 +156,12 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
             </View>
           )}
         </View>
-        
+
         {spot.description && (
-          <Text style={[styles.description, { color: theme.text.secondary }]}>
-            {spot.description}
-          </Text>
+          <Text style={[styles.description, { color: theme.text.secondary }]}>{spot.description}</Text>
         )}
-        
+
         <View style={styles.infoGrid}>
-          {/* Distance info */}
           {spot.distance !== undefined && (
             <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
               <MapPin size={20} color={theme.primary.default} />
@@ -109,8 +171,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
               </Text>
             </View>
           )}
-          
-          {/* Time info */}
+
           {spot.estimatedTime !== undefined && (
             <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
               <Clock size={20} color={theme.primary.default} />
@@ -120,8 +181,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
               </Text>
             </View>
           )}
-          
-          {/* Price info */}
+
           {spot.price !== undefined && (
             <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
               <Banknote size={20} color={theme.primary.default} />
@@ -132,21 +192,15 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
             </View>
           )}
         </View>
-        
-        {/* Amenities */}
+
         {spot.amenities && spot.amenities.length > 0 && (
           <View style={styles.amenitiesContainer}>
-            <Text style={[styles.amenitiesTitle, { color: theme.text.primary }]}>
-              Amenities
-            </Text>
+            <Text style={[styles.amenitiesTitle, { color: theme.text.primary }]}>Amenities</Text>
             <View style={styles.amenitiesList}>
               {spot.amenities.map((amenity, index) => (
-                <View 
-                  key={index} 
-                  style={[
-                    styles.amenityTag, 
-                    { backgroundColor: theme.background.secondary }
-                  ]}
+                <View
+                  key={index}
+                  style={[styles.amenityTag, { backgroundColor: theme.background.secondary }]}
                 >
                   <Text style={[styles.amenityText, { color: theme.text.secondary }]}>
                     {amenity.charAt(0).toUpperCase() + amenity.slice(1)}
@@ -156,29 +210,32 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
             </View>
           </View>
         )}
-        
-        {/* Type indicator */}
+
         <View style={styles.typeContainer}>
-          <View style={[
-            styles.typeTag, 
-            { backgroundColor: spot.available ? theme.success.default : theme.error.default }
-          ]}>
+          <View
+            style={[
+              styles.typeTag,
+              {
+                backgroundColor: spot.available ? theme.success.default : theme.error.default,
+              },
+            ]}
+          >
             {getTypeIcon()}
             <Text style={[styles.typeText, { color: theme.text.inverse }]}>
-              {spot.available ? 'Available' : 'Occupied'} · {spot.type ? spot.type.charAt(0).toUpperCase() + spot.type.slice(1) : 'Standard'}
+              {spot.available ? 'Available' : 'Occupied'} ·{' '}
+              {spot.type ? spot.type.charAt(0).toUpperCase() + spot.type.slice(1) : 'Standard'}
             </Text>
           </View>
         </View>
-        
-        {/* Action buttons */}
+
         <View style={styles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.bookButton, 
-              { 
+              styles.bookButton,
+              {
                 backgroundColor: spot.available ? theme.primary.default : theme.neutral[400],
-                opacity: loading ? 0.7 : 1
-              }
+                opacity: loading ? 0.7 : 1,
+              },
             ]}
             onPress={handleBookSpot}
             disabled={!spot.available || loading}
@@ -187,10 +244,10 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
               {loading ? 'Booking...' : spot.available ? 'Book Now' : 'Not Available'}
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.navigationButton, { backgroundColor: theme.secondary.default }]}
-            onPress={() => {/* Navigate */}}
+            onPress={handleNavigation}
           >
             <Navigation size={24} color={theme.text.inverse} />
           </TouchableOpacity>
@@ -205,7 +262,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  closeButton: {
+  imageWrapper: {
+    position: 'relative',
+  },
+  closeButtonOverlay: {
     position: 'absolute',
     top: 12,
     right: 12,

@@ -1,7 +1,7 @@
 import { useTheme } from '@/context/ThemeContext';
 import React, { useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { GestureHandlerStateChangeEvent, PanGestureHandler } from 'react-native-gesture-handler';
+import { GestureHandlerStateChangeEvent, PanGestureHandler, State } from 'react-native-gesture-handler';
 
 type SliderProps = {
   value: number;
@@ -28,12 +28,14 @@ export default function Slider({
   );
   
   // Calculate the width of the filled track
-  const width = position.interpolate({
-    inputRange: [0, sliderWidth],
-    outputRange: ['0%', '100%'],
-    extrapolate: 'clamp',
-  });
-  
+  const width = sliderWidth > 0
+    ? position.interpolate({
+        inputRange: [0, sliderWidth],
+        outputRange: ['0%', '100%'],
+        extrapolate: 'clamp',
+      })
+  : 0;
+
   // Update position when slider width changes
   React.useEffect(() => {
     if (sliderWidth > 0) {
@@ -50,7 +52,7 @@ export default function Slider({
   
   // Handle gesture state change
   const onHandlerStateChange = (event: GestureHandlerStateChangeEvent) => {
-    if (event.nativeEvent.state === 5) { // END state
+    if (event.nativeEvent.state === State.END) {
         let newX = event.nativeEvent.x as number;
 
         // Clamp position
