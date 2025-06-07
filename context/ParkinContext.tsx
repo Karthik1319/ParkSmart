@@ -1,4 +1,4 @@
-import { bookParkingSpot, cancelBooking, getAllParkingSpots, getUserBookings } from '@/services/parking';
+import { bookParkingSpot, cancelBooking, finishParking, getAllParkingSpots, getUserBookings } from '@/services/parking';
 import { BookingHistory, ParkingSpot } from '@/types/parking';
 import * as Location from 'expo-location';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ type ParkingContextType = {
   selectParkingSpot: (spot: ParkingSpot | null) => void;
   findNearestAvailableSpot: () => ParkingSpot | null;
   bookSpot: (spotId: string) => Promise<boolean>;
+  finishParking: (bookingId: string) => Promise<boolean>;
   cancelBooking: (bookingId: string) => Promise<boolean>;
 };
 
@@ -31,6 +32,7 @@ const ParkingContext = createContext<ParkingContextType>({
   selectParkingSpot: () => {},
   findNearestAvailableSpot: () => null,
   bookSpot: async () => false,
+  finishParking: async () => false,
   cancelBooking: async () => false,
 });
 
@@ -56,7 +58,9 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync({});
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
         setUserLocation(location);
       } catch (err) {
         setError('Could not get current location');
@@ -74,7 +78,8 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         locationSubscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
-            distanceInterval: 10, // Update every 10 meters
+            distanceInterval: 50, // Update every 50 meters
+            timeInterval: 30000, // Update every 30 seconds
           },
           (location) => {
             setUserLocation(location);
@@ -120,8 +125,8 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
       setParkingSpots(spots);
       
-      // Filter spots within 5km
-      const nearby = spots.filter(spot => spot.distance && spot.distance < 5);
+      // Filter spots within 10km
+      const nearby = spots.filter(spot => spot.distance && spot.distance < 10);
       setNearbySpots(nearby);
     } catch (err) {
       console.error('Error fetching parking spots:', err);
@@ -190,6 +195,43 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const handleFinishParking = async (bookingId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      setLoading(true);
+      const completedBooking = await finishParking(bookingId);
+      
+      // Update booking status locally
+      setBookingHistory(prev => 
+        prev.map(b => 
+          b.id === bookingId ? completedBooking : b
+        )
+      );
+      
+      // Make the spot available again
+      setParkingSpots(spots => 
+        spots.map(spot => 
+          spot.id === completedBooking.spotId ? { ...spot, available: true } : spot
+        )
+      );
+      
+      setNearbySpots(spots => 
+        spots.map(spot => 
+          spot.id === completedBooking.spotId ? { ...spot, available: true } : spot
+        )
+      );
+      
+      return true;
+    } catch (err) {
+      console.error('Error finishing parking:', err);
+      setError('Failed to finish parking');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancelBooking = async (bookingId: string): Promise<boolean> => {
     if (!user) return false;
     
@@ -248,6 +290,7 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectParkingSpot,
         findNearestAvailableSpot,
         bookSpot,
+        finishParking: handleFinishParking,
         cancelBooking: handleCancelBooking
       }}
     >

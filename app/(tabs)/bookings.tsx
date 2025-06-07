@@ -1,14 +1,15 @@
 import { useParking } from '@/context/ParkinContext';
 import { useTheme } from '@/context/ThemeContext';
 import { BookingHistory } from '@/types/parking';
-import { Calendar, ChevronRight, Clock, MapPin, X } from 'lucide-react-native';
+import { calculateParkingCost } from '@/utils/distance';
+import { Calendar, CircleCheck as CheckCircle, Clock, CreditCard, MapPin, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function BookingsScreen() {
   const { theme } = useTheme();
-  const { bookingHistory, cancelBooking, loading } = useParking();
+  const { bookingHistory, cancelBooking, finishParking, loading } = useParking();
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
   
   // Filter bookings based on active tab
@@ -65,7 +66,49 @@ export default function BookingsScreen() {
   
   // Handle booking cancellation
   const handleCancelBooking = async (bookingId: string) => {
-    await cancelBooking(bookingId);
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes', 
+          style: 'destructive',
+          onPress: async () => {
+            const success = await cancelBooking(bookingId);
+            if (success) {
+              Alert.alert('Success', 'Booking cancelled successfully');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle finish parking
+  const handleFinishParking = async (booking: BookingHistory) => {
+    const currentCost = calculateParkingCost(
+      booking.startTime,
+      new Date(),
+      booking.spot.price || 0
+    );
+
+    Alert.alert(
+      'Finish Parking',
+      `Duration: ${currentCost.formattedBillingDuration}\nTotal Cost: $${currentCost.totalCost}\n\nAre you sure you want to finish parking?`,
+      [
+        { text: 'Continue Parking', style: 'cancel' },
+        { 
+          text: 'Finish & Pay', 
+          onPress: async () => {
+            const success = await finishParking(booking.id);
+            if (success) {
+              Alert.alert('Success', `Parking completed! Total cost: $${currentCost.totalCost}`);
+            }
+          }
+        }
+      ]
+    );
   };
   
   // Render a booking item
@@ -96,7 +139,7 @@ export default function BookingsScreen() {
                   ? theme.success.default 
                   : item.status === 'cancelled'
                     ? theme.error.default
-                    : theme.neutral[400]
+                    : theme.primary.default
             }
           ]}>
             <Text style={[styles.statusText, { color: theme.text.inverse }]}>
@@ -127,18 +170,38 @@ export default function BookingsScreen() {
             {item.spot.description || 'No location details'}
           </Text>
         </View>
+
+        {/* Cost information */}
+        {item.status === 'active' && (
+          <View style={styles.detailsRow}>
+            <CreditCard size={16} color={theme.text.secondary} />
+            <Text style={[styles.detailText, { color: theme.text.secondary }]}>
+              Rate: ${item.spot.price || 0}/hour
+            </Text>
+          </View>
+        )}
+
+        {item.status === 'completed' && item.totalCost && (
+          <View style={styles.detailsRow}>
+            <CreditCard size={16} color={theme.success.default} />
+            <Text style={[styles.detailText, { color: theme.success.default, fontFamily: 'Inter-Medium' }]}>
+              Total Cost: ${item.totalCost.toFixed(2)}
+            </Text>
+          </View>
+        )}
         
         {/* Action buttons */}
         {item.status === 'active' && (
           <View style={styles.actionButtons}>
             <TouchableOpacity 
-              style={[styles.viewDetailsButton, { backgroundColor: theme.primary.default }]}
-              onPress={() => {/* Navigate to details */}}
+              style={[styles.finishButton, { backgroundColor: theme.primary.default }]}
+              onPress={() => handleFinishParking(item)}
+              disabled={loading}
             >
+              <CheckCircle size={16} color={theme.text.inverse} />
               <Text style={[styles.buttonText, { color: theme.text.inverse }]}>
-                Navigate
+                Finish Parking
               </Text>
-              <ChevronRight size={16} color={theme.text.inverse} />
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -306,7 +369,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
-  viewDetailsButton: {
+  finishButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -326,7 +389,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: 'Inter-Medium',
     fontSize: 14,
-    marginRight: 4,
+    marginLeft: 4,
   },
   emptyContainer: {
     alignItems: 'center',

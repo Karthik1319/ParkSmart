@@ -3,13 +3,13 @@ import { useTheme } from '@/context/ThemeContext';
 import { Accessibility, Archive, BatteryCharging, Car, Check, Layers, Leaf, Shield, Sun, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 type FilterProps = {
@@ -19,10 +19,23 @@ type FilterProps = {
     maxPrice: number;
     maxDistance: number;
     types: string[];
+    amenities: string[];
   };
   onApply: (filters: any) => void;
   onClose: () => void;
 };
+
+const AVAILABLE_AMENITIES = [
+  'Security',
+  'CCTV',
+  'EV Charging',
+  'Covered',
+  'Lighting',
+  'Toilets',
+  'Elevator',
+  'Shuttle',
+  'Scenic'
+];
 
 export default function FilterModal({ visible, filters, onApply, onClose }: FilterProps) {
   const { theme } = useTheme();
@@ -34,9 +47,10 @@ export default function FilterModal({ visible, filters, onApply, onClose }: Filt
   const handleReset = () => {
     setLocalFilters({
       onlyAvailable: true,
-      maxPrice: 10,
-      maxDistance: 5,
-      types: ['standard', 'handicapped', 'electric', 'compact', 'underground', 'open-air', 'covered', 'shaded', 'multi-level']
+      maxPrice: 50,
+      maxDistance: 10,
+      types: ['standard', 'handicapped', 'electric', 'compact', 'underground', 'open-air', 'covered', 'shaded', 'multi-level'],
+      amenities: []
     });
   };
   
@@ -61,6 +75,25 @@ export default function FilterModal({ visible, filters, onApply, onClose }: Filt
         return {
           ...prev,
           types: [...types, type]
+        };
+      }
+    });
+  };
+
+  // Toggle amenity selection
+  const toggleAmenity = (amenity: string) => {
+    setLocalFilters(prev => {
+      const amenities = [...prev.amenities];
+      
+      if (amenities.includes(amenity)) {
+        return {
+          ...prev,
+          amenities: amenities.filter(a => a !== amenity)
+        };
+      } else {
+        return {
+          ...prev,
+          amenities: [...amenities, amenity]
         };
       }
     });
@@ -115,7 +148,7 @@ export default function FilterModal({ visible, filters, onApply, onClose }: Filt
               <Slider
                 value={localFilters.maxDistance}
                 minimumValue={1}
-                maximumValue={10}
+                maximumValue={20}
                 step={1}
                 onValueChange={(value) => setLocalFilters(prev => ({ ...prev, maxDistance: value }))}
               />
@@ -132,8 +165,8 @@ export default function FilterModal({ visible, filters, onApply, onClose }: Filt
               <Slider
                 value={localFilters.maxPrice}
                 minimumValue={1}
-                maximumValue={20}
-                step={1}
+                maximumValue={100}
+                step={5}
                 onValueChange={(value) => setLocalFilters(prev => ({ ...prev, maxPrice: value }))}
               />
             </View>
@@ -440,6 +473,46 @@ export default function FilterModal({ visible, filters, onApply, onClose }: Filt
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Amenities Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterTitle, { color: theme.text.primary }]}>
+                Amenities
+              </Text>
+              
+              <View style={styles.amenitiesGrid}>
+                {AVAILABLE_AMENITIES.map((amenity) => (
+                  <TouchableOpacity
+                    key={amenity}
+                    style={[
+                      styles.amenityOption,
+                      { 
+                        backgroundColor: localFilters.amenities.includes(amenity) 
+                          ? theme.primary.default 
+                          : theme.background.secondary,
+                        borderColor: localFilters.amenities.includes(amenity) 
+                          ? theme.primary.default 
+                          : theme.border
+                      }
+                    ]}
+                    onPress={() => toggleAmenity(amenity)}
+                  >
+                    <Text 
+                      style={[
+                        styles.amenityText,
+                        { 
+                          color: localFilters.amenities.includes(amenity) 
+                            ? theme.text.inverse 
+                            : theme.text.primary 
+                        }
+                      ]}
+                    >
+                      {amenity}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </ScrollView>
           
           {/* Action Buttons */}
@@ -478,7 +551,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 24,
-    height: '80%',
+    height: '85%',
   },
   header: {
     flexDirection: 'row',
@@ -536,6 +609,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     fontSize: 14,
     marginLeft: 8,
+  },
+  amenitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  amenityOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  amenityText: {
+    fontFamily: 'Inter-Medium',
+    fontSize: 12,
   },
   actionButtons: {
     flexDirection: 'row',

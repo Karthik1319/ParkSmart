@@ -1,14 +1,15 @@
 import { BookingHistory, ParkingSpot } from '@/types/parking';
+import { calculateDrivingDistance, calculateEstimatedTime } from '@/utils/distance';
 import {
-    addDoc,
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    orderBy,
-    query,
-    updateDoc,
-    where,
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  updateDoc,
+  where,
 } from 'firebase/firestore';
 import * as geofire from 'geofire-common';
 import { firestore } from './firebase';
@@ -22,7 +23,7 @@ export const getAllParkingSpots = async (
 ): Promise<ParkingSpot[]> => {
   try {
     const center: [number, number] = [latitude, longitude];
-    const radiusInM = 5000;
+    const radiusInM = 10000; // Increased radius to 10km for better coverage
 
     const bounds = geofire.geohashQueryBounds(center, radiusInM);
     const spotPromises = bounds.map((b) => {
@@ -40,12 +41,18 @@ export const getAllParkingSpots = async (
     for (const snap of snapshots) {
       for (const d of snap.docs) {
         const spotData = d.data();
-        const distanceInKm = geofire.distanceBetween(
+        
+        // Calculate straight-line distance
+        const straightLineDistance = geofire.distanceBetween(
           [spotData.coordinates.latitude, spotData.coordinates.longitude],
           center
         );
 
-        if (distanceInKm <= radiusInM / 1000) {
+        if (straightLineDistance <= radiusInM / 1000) {
+          // Calculate more realistic driving distance
+          const drivingDistance = calculateDrivingDistance(straightLineDistance);
+          const estimatedTime = calculateEstimatedTime(drivingDistance);
+
           matchingDocs.push({
             id: d.id,
             name: spotData.name,
@@ -59,14 +66,15 @@ export const getAllParkingSpots = async (
             images: spotData.images ?? [],
             rating: spotData.rating ?? 0,
             ratingCount: spotData.ratingCount ?? 0,
-            distance: distanceInKm,
-            estimatedTime: Math.round(distanceInKm * 3),
+            distance: drivingDistance, // Use driving distance instead of straight-line
+            estimatedTime: estimatedTime,
           } as ParkingSpot);
         }
       }
     }
 
-    return matchingDocs;
+    // Sort by distance
+    return matchingDocs.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
   } catch (error) {
     console.error('Error getting parking spots:', error);
     throw error;
@@ -149,6 +157,8 @@ export const bookParkingSpot = async (
       startTime: new Date(),
       endTime: null,
       status: 'active',
+      totalCost: 0,
+      paymentMethod: 'pending',
       createdAt: new Date(),
     });
 
@@ -159,10 +169,68 @@ export const bookParkingSpot = async (
       spot,
       startTime: new Date(),
       endTime: null,
-      status: 'active'
+      status: 'active',
+      totalCost: 0,
+      paymentMethod: 'pending'
     };
   } catch (error) {
     console.error('Error booking spot:', error);
+    throw error;
+  }
+};
+
+export const finishParking = async (bookingId: string): Promise<BookingHistory> => {
+  try {
+    const bookingRef = doc(firestore, BOOKINGS_COLLECTION, bookingId);
+    const bookingDocSnap = await getDoc(bookingRef);
+
+    if (!bookingDocSnap.exists()) {
+      throw new Error('Booking not found');
+    }
+
+    const bookingData = bookingDocSnap.data();
+    const spot = await getParkingSpotById(bookingData.spotId);
+    
+    if (!spot) {
+      throw new Error('Parking spot not found');
+    }
+
+    const endTime = new Date();
+    const startTime = bookingData.startTime.toDate();
+    
+    // Calculate total cost
+    const durationMs = endTime.getTime() - startTime.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+    const billingHours = Math.ceil(durationHours * 4) / 4; // Round up to nearest 15 minutes
+    const totalCost = billingHours * (spot.price || 0);
+
+    // Update booking
+    await updateDoc(bookingRef, {
+      status: 'completed',
+      endTime: endTime,
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      paymentMethod: 'card', // Default payment method
+    });
+
+    // Make spot available again
+    const spotRef = doc(firestore, SPOTS_COLLECTION, bookingData.spotId);
+    await updateDoc(spotRef, {
+      available: true,
+    });
+
+    return {
+      id: bookingId,
+      userId: bookingData.userId,
+      spotId: bookingData.spotId,
+      spot,
+      startTime,
+      endTime,
+      status: 'completed',
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      paymentMethod: 'card'
+    };
+  } catch (error) {
+    console.error('Error finishing parking:', error);
     throw error;
   }
 };

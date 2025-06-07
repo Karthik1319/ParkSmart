@@ -131,7 +131,6 @@ const styles = StyleSheet.create({
   featureSlide: {
     alignItems: 'center',
     padding: 20,
-    marginHorizontal: 20,
   },
   featureIconContainer: {
     width: 80,

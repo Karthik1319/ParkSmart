@@ -1,10 +1,9 @@
 import { useParking } from '@/context/ParkinContext';
 import { useTheme } from '@/context/ThemeContext';
 import { ParkingSpot } from '@/types/parking';
-import { formatDistance, formatTime } from '@/utils/distance';
-import { Archive, Banknote, BatteryCharging, Car, Clock, Layers, Leaf, MapPin, Navigation, ShieldCheck, Star, Sun, X } from 'lucide-react-native';
+import { Archive, Banknote, BatteryCharging, Car, Layers, Leaf, Navigation, ShieldCheck, Star, Sun, X } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ParkingSpotCardProps = {
@@ -139,19 +138,21 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.detailsContainer, { paddingBottom: insets.bottom + 45 }]}>
+      {/* Wrap details in ScrollView */}
+      <ScrollView
+        style={[styles.detailsContainer, { paddingBottom: insets.bottom + 45 }]}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* All your details content here unchanged */}
         <View style={styles.nameRow}>
           <Text style={[styles.spotName, { color: theme.text.primary }]}>{spot.name}</Text>
           {spot.rating && (
             <View style={styles.ratingContainer}>
               <Star size={16} color={theme.accent.default} fill={theme.accent.default} />
-              <Text style={[styles.ratingText, { color: theme.text.primary }]}>
-                {spot.rating.toFixed(1)}
-              </Text>
+              <Text style={[styles.ratingText, { color: theme.text.primary }]}>{spot.rating.toFixed(1)}</Text>
               {spot.ratingCount && (
-                <Text style={[styles.ratingCount, { color: theme.text.tertiary }]}>
-                  ({spot.ratingCount})
-                </Text>
+                <Text style={[styles.ratingCount, { color: theme.text.tertiary }]}>({spot.ratingCount})</Text>
               )}
             </View>
           )}
@@ -161,27 +162,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
           <Text style={[styles.description, { color: theme.text.secondary }]}>{spot.description}</Text>
         )}
 
-        <View style={styles.infoGrid}>
-          {spot.distance !== undefined && (
-            <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
-              <MapPin size={20} color={theme.primary.default} />
-              <Text style={[styles.infoLabel, { color: theme.text.secondary }]}>Distance</Text>
-              <Text style={[styles.infoValue, { color: theme.text.primary }]}>
-                {formatDistance(spot.distance)}
-              </Text>
-            </View>
-          )}
-
-          {spot.estimatedTime !== undefined && (
-            <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
-              <Clock size={20} color={theme.primary.default} />
-              <Text style={[styles.infoLabel, { color: theme.text.secondary }]}>Drive Time</Text>
-              <Text style={[styles.infoValue, { color: theme.text.primary }]}>
-                {formatTime(spot.estimatedTime)}
-              </Text>
-            </View>
-          )}
-
+        <View style={styles.singleInfoContainer}>
           {spot.price !== undefined && (
             <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
               <Banknote size={20} color={theme.primary.default} />
@@ -252,7 +233,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
             <Navigation size={24} color={theme.text.inverse} />
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -297,7 +278,7 @@ const styles = StyleSheet.create({
   },
   spotName: {
     fontFamily: 'Inter-Bold',
-    fontSize: 24,
+    fontSize: 20,
     flex: 1,
   },
   ratingContainer: {
@@ -310,40 +291,39 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontFamily: 'Inter-Bold',
-    fontSize: 14,
+    fontSize: 12,
     marginLeft: 4,
   },
   ratingCount: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 10,
     marginLeft: 2,
   },
   description: {
     fontFamily: 'Inter-Regular',
-    fontSize: 16,
-    marginBottom: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
   },
-  infoGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  singleInfoContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
   infoCard: {
-    flex: 1,
-    marginHorizontal: 4,
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
+    minWidth: 100,
   },
   infoLabel: {
     fontFamily: 'Inter-Regular',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 4,
   },
   infoValue: {
     fontFamily: 'Inter-Bold',
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 2,
   },
   amenitiesContainer: {
@@ -351,8 +331,8 @@ const styles = StyleSheet.create({
   },
   amenitiesTitle: {
     fontFamily: 'Inter-Bold',
-    fontSize: 18,
-    marginBottom: 8,
+    fontSize: 16,
+    marginBottom: 6,
   },
   amenitiesList: {
     flexDirection: 'row',
@@ -367,7 +347,7 @@ const styles = StyleSheet.create({
   },
   amenityText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 13,
   },
   typeContainer: {
     marginBottom: 16,
@@ -376,13 +356,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
   },
   typeText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 14,
+    fontSize: 13,
     marginLeft: 6,
   },
   actionButtons: {
@@ -391,11 +371,11 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   navigationButton: {
     width: 56,
@@ -406,6 +386,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontFamily: 'Inter-Bold',
-    fontSize: 16,
+    fontSize: 15,
   },
 });

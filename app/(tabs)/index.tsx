@@ -18,6 +18,7 @@ type ParkingFilters = {
   maxPrice: number;
   maxDistance: number;
   types: SpotType[];
+  amenities: string[];
 };
 
 const MAP_STYLE = [
@@ -196,9 +197,10 @@ export default function MapScreen() {
   const [filterVisible, setFilterVisible] = useState(false);
   const [filters, setFilters] = useState<ParkingFilters>({
     onlyAvailable: true,
-    maxPrice: 10,
-    maxDistance: 5,
-    types: ['standard', 'handicapped', 'electric', 'compact', 'underground', 'open-air', 'covered', 'shaded', 'multi-level']
+    maxPrice: 50,
+    maxDistance: 10,
+    types: ['standard', 'handicapped', 'electric', 'compact', 'underground', 'open-air', 'covered', 'shaded', 'multi-level'],
+    amenities: []
   });
   
   const mapRef = useRef<MapView>(null);
@@ -217,10 +219,29 @@ export default function MapScreen() {
   };
   
   const filteredSpots = nearbySpots.filter(spot => {
+    // Availability filter
     if (filters.onlyAvailable && !spot.available) return false;
+    
+    // Distance filter
     if (spot.distance && spot.distance > filters.maxDistance) return false;
+    
+    // Price filter
     if (spot.price && spot.price > filters.maxPrice) return false;
+    
+    // Type filter
     if (spot.type && !filters.types.includes(spot.type)) return false;
+    
+    // Amenities filter
+    if (filters.amenities.length > 0) {
+      const spotAmenities = spot.amenities || [];
+      const hasRequiredAmenities = filters.amenities.every(amenity => 
+        spotAmenities.some(spotAmenity => 
+          spotAmenity.toLowerCase().includes(amenity.toLowerCase())
+        )
+      );
+      if (!hasRequiredAmenities) return false;
+    }
+    
     return true;
   });
   
@@ -283,17 +304,17 @@ export default function MapScreen() {
         customMapStyle={isDark ? MAP_STYLE : []}
       >
         {filteredSpots.map(spot =>
-  spot.coordinates ? (
-    <CustomMapPin
-            key={spot.id}
-            id={spot.id}
-            latitude={spot.coordinates.latitude}
-            longitude={spot.coordinates.longitude}
-            available={spot.available}
-            onPress={() => selectParkingSpot(spot)}
-          />
-        ) : null
-      )}
+          spot.coordinates ? (
+            <CustomMapPin
+              key={spot.id}
+              id={spot.id}
+              latitude={spot.coordinates.latitude}
+              longitude={spot.coordinates.longitude}
+              available={spot.available}
+              onPress={() => selectParkingSpot(spot)}
+            />
+          ) : null
+        )}
       </MapView>
       
       <View style={styles.topButtonsContainer}>
@@ -309,7 +330,7 @@ export default function MapScreen() {
         >
           <Filter size={20} color={theme.text.primary} />
           <Text style={[styles.actionButtonText, { color: theme.text.primary }]}>
-            Filters
+            Filters ({filteredSpots.length})
           </Text>
         </TouchableOpacity>
         
