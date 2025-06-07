@@ -1,11 +1,12 @@
+import CustomMapPin from '@/components/parking/CustomMapPin';
 import FilterModal from '@/components/parking/FilterModal';
 import ParkingSpotCard from '@/components/parking/ParkingSpotCard';
 import { useParking } from '@/context/ParkinContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Filter, MapPin, Navigation, RefreshCw } from 'lucide-react-native';
+import { ListFilter as Filter, Navigation, RefreshCw } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
@@ -199,12 +200,10 @@ export default function MapScreen() {
     maxDistance: 5,
     types: ['standard', 'handicapped', 'electric', 'compact', 'underground', 'open-air', 'covered', 'shaded', 'multi-level']
   });
-
   
   const mapRef = useRef<MapView>(null);
   const bottomSheetAnim = useRef(new Animated.Value(0)).current;
   
-  // Initial region based on user location or default to San Francisco
   const initialRegion: Region = userLocation ? {
     latitude: userLocation.coords.latitude,
     longitude: userLocation.coords.longitude,
@@ -217,7 +216,6 @@ export default function MapScreen() {
     longitudeDelta: 0.05,
   };
   
-  // Filter spots based on user preferences
   const filteredSpots = nearbySpots.filter(spot => {
     if (filters.onlyAvailable && !spot.available) return false;
     if (spot.distance && spot.distance > filters.maxDistance) return false;
@@ -226,7 +224,6 @@ export default function MapScreen() {
     return true;
   });
   
-  // Animate bottom sheet when spot is selected
   useEffect(() => {
     Animated.spring(bottomSheetAnim, {
       toValue: selectedSpot ? 1 : 0,
@@ -234,18 +231,16 @@ export default function MapScreen() {
       bounciness: 0,
     }).start();
     
-    // Center map on selected spot
     if (selectedSpot && selectedSpot.coordinates && mapRef.current) {
       mapRef.current.animateToRegion({
         latitude: selectedSpot.coordinates.latitude,
         longitude: selectedSpot.coordinates.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
       }, 500);
     }
   }, [selectedSpot]);
   
-  // Find nearest spot function
   const handleFindNearest = () => {
     const nearestSpot = findNearestAvailableSpot();
     if (nearestSpot) {
@@ -253,11 +248,9 @@ export default function MapScreen() {
     }
   };
   
-  // Handle map refresh
   const handleRefresh = () => {
     refreshParkingSpots();
     
-    // If user location exists, recenter map
     if (userLocation && mapRef.current) {
       mapRef.current.animateToRegion({
         latitude: userLocation.coords.latitude,
@@ -268,22 +261,18 @@ export default function MapScreen() {
     }
   };
   
-  // Handle filter changes
   const applyFilters = (newFilters: ParkingFilters) => {
     setFilters(newFilters);
     setFilterVisible(false);
   };
-
   
-  // Calculate bottom sheet translation
   const translateY = bottomSheetAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [200, 0],
+    outputRange: [400, 0],
   });
   
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Map */}
+    <SafeAreaView style={[styles.container, { paddingTop: 12, paddingBottom: 30 }]} edges={['top', 'bottom']}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -293,39 +282,29 @@ export default function MapScreen() {
         showsMyLocationButton={false}
         customMapStyle={isDark ? MAP_STYLE : []}
       >
-        {filteredSpots.map((spot) => (
-          spot.coordinates ? (
-            <Marker
-              key={spot.id}
-              coordinate={{
-                latitude: spot.coordinates.latitude,
-                longitude: spot.coordinates.longitude
-              }}
-              onPress={() => selectParkingSpot(spot)}
-            >
-              <View style={[
-                styles.markerContainer,
-                {
-                  backgroundColor: spot.available 
-                    ? theme.success.default 
-                    : theme.error.default
-                }
-              ]}>
-                <MapPin 
-                  size={16} 
-                  color={theme.text.inverse} 
-                  strokeWidth={3}
-                />
-              </View>
-            </Marker>
-          ) : null
-        ))}
+        {filteredSpots.map(spot =>
+  spot.coordinates ? (
+    <CustomMapPin
+            key={spot.id}
+            id={spot.id}
+            latitude={spot.coordinates.latitude}
+            longitude={spot.coordinates.longitude}
+            available={spot.available}
+            onPress={() => selectParkingSpot(spot)}
+          />
+        ) : null
+      )}
       </MapView>
       
-      {/* Top Action Buttons */}
       <View style={styles.topButtonsContainer}>
         <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: theme.background.primary }]}
+          style={[
+            styles.actionButton, 
+            { 
+              backgroundColor: theme.background.primary,
+              shadowColor: theme.shadow,
+            }
+          ]}
           onPress={() => setFilterVisible(true)}
         >
           <Filter size={20} color={theme.text.primary} />
@@ -335,7 +314,13 @@ export default function MapScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: theme.primary.default }]}
+          style={[
+            styles.actionButton, 
+            { 
+              backgroundColor: theme.primary.default,
+              shadowColor: theme.shadow,
+            }
+          ]}
           onPress={handleFindNearest}
           disabled={loading}
         >
@@ -346,7 +331,13 @@ export default function MapScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.iconButton, { backgroundColor: theme.background.primary }]}
+          style={[
+            styles.iconButton, 
+            { 
+              backgroundColor: theme.background.primary,
+              shadowColor: theme.shadow,
+            }
+          ]}
           onPress={handleRefresh}
           disabled={loading}
         >
@@ -357,12 +348,12 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* Bottom Sheet for Parking Spot Details */}
       <Animated.View
         style={[
           styles.bottomSheet,
           { 
             backgroundColor: theme.background.primary,
+            shadowColor: theme.shadow,
             transform: [{ translateY }] 
           }
         ]}
@@ -375,7 +366,6 @@ export default function MapScreen() {
         )}
       </Animated.View>
       
-      {/* Filter Modal */}
       <FilterModal
         visible={filterVisible}
         filters={filters}
@@ -395,7 +385,7 @@ const styles = StyleSheet.create({
   },
   topButtonsContainer: {
     position: 'absolute',
-    top: 16,
+    top: 45,
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -406,13 +396,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    shadowColor: '#000',
+    paddingVertical: 12,
+    borderRadius: 16,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   actionButtonText: {
     marginLeft: 8,
@@ -420,28 +409,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  markerContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   bottomSheet: {
     position: 'absolute',
@@ -450,12 +426,11 @@ const styles = StyleSheet.create({
     right: 0,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 10,
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 16, // Extra padding for iOS home indicator
+    shadowRadius: 12,
+    elevation: 16,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
   },
 });

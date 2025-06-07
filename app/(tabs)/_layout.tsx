@@ -16,7 +16,8 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           borderTopWidth: 0,
-          height: 60,
+          height: 80,
+          paddingBottom: 20,
           backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.background.primary,
           position: 'absolute',
           borderTopLeftRadius: 24,

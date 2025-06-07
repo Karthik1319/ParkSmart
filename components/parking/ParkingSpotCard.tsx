@@ -5,6 +5,7 @@ import { formatDistance, formatTime } from '@/utils/distance';
 import { Archive, Banknote, BatteryCharging, Car, Clock, Layers, Leaf, MapPin, Navigation, ShieldCheck, Star, Sun, X } from 'lucide-react-native';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type ParkingSpotCardProps = {
   spot: ParkingSpot;
@@ -14,6 +15,7 @@ type ParkingSpotCardProps = {
 export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps) {
   const { theme } = useTheme();
   const { bookSpot, loading } = useParking();
+  const insets = useSafeAreaInsets();
   
   // Get icon based on parking type
   const getTypeIcon = () => {
@@ -29,7 +31,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
       case 'open-air':
         return <Sun size={16} color={theme.text.inverse} />;
       case 'covered':
-        return <ShieldCheck size={16} color={theme.text.inverse} />;  // reuse ShieldCheck for covered
+        return <ShieldCheck size={16} color={theme.text.inverse} />;
       case 'shaded':
         return <Leaf size={16} color={theme.text.inverse} />;
       case 'multi-level':
@@ -69,7 +71,7 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
       )}
       
       {/* Spot details */}
-      <View style={styles.detailsContainer}>
+      <View style={[styles.detailsContainer, { paddingBottom: insets.bottom + 55 }]}>
         <View style={styles.nameRow}>
           <Text style={[styles.spotName, { color: theme.text.primary }]}>
             {spot.name}
@@ -96,32 +98,35 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
           </Text>
         )}
         
-        <View style={styles.infoRows}>
+        <View style={styles.infoGrid}>
           {/* Distance info */}
           {spot.distance !== undefined && (
-            <View style={styles.infoRow}>
-              <MapPin size={18} color={theme.primary.default} />
-              <Text style={[styles.infoText, { color: theme.text.primary }]}>
-                {formatDistance(spot.distance)} away
+            <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
+              <MapPin size={20} color={theme.primary.default} />
+              <Text style={[styles.infoLabel, { color: theme.text.secondary }]}>Distance</Text>
+              <Text style={[styles.infoValue, { color: theme.text.primary }]}>
+                {formatDistance(spot.distance)}
               </Text>
             </View>
           )}
           
           {/* Time info */}
           {spot.estimatedTime !== undefined && (
-            <View style={styles.infoRow}>
-              <Clock size={18} color={theme.primary.default} />
-              <Text style={[styles.infoText, { color: theme.text.primary }]}>
-                {formatTime(spot.estimatedTime)} drive
+            <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
+              <Clock size={20} color={theme.primary.default} />
+              <Text style={[styles.infoLabel, { color: theme.text.secondary }]}>Drive Time</Text>
+              <Text style={[styles.infoValue, { color: theme.text.primary }]}>
+                {formatTime(spot.estimatedTime)}
               </Text>
             </View>
           )}
           
           {/* Price info */}
           {spot.price !== undefined && (
-            <View style={styles.infoRow}>
-              <Banknote size={18} color={theme.primary.default} />
-              <Text style={[styles.infoText, { color: theme.text.primary }]}>
+            <View style={[styles.infoCard, { backgroundColor: theme.background.secondary }]}>
+              <Banknote size={20} color={theme.primary.default} />
+              <Text style={[styles.infoLabel, { color: theme.text.secondary }]}>Rate</Text>
+              <Text style={[styles.infoValue, { color: theme.text.primary }]}>
                 ${spot.price.toFixed(2)}/{spot.priceUnit || 'hour'}
               </Text>
             </View>
@@ -162,7 +167,6 @@ export default function ParkingSpotCard({ spot, onClose }: ParkingSpotCardProps)
             <Text style={[styles.typeText, { color: theme.text.inverse }]}>
               {spot.available ? 'Available' : 'Occupied'} · {spot.type ? spot.type.charAt(0).toUpperCase() + spot.type.slice(1) : 'Standard'}
             </Text>
-
           </View>
         </View>
         
@@ -214,12 +218,12 @@ const styles = StyleSheet.create({
   },
   spotImage: {
     width: '100%',
-    height: 160,
+    height: 180,
     borderRadius: 12,
   },
   spotImagePlaceholder: {
     width: '100%',
-    height: 160,
+    height: 180,
     borderRadius: 12,
   },
   detailsContainer: {
@@ -233,12 +237,16 @@ const styles = StyleSheet.create({
   },
   spotName: {
     fontFamily: 'Inter-Bold',
-    fontSize: 20,
+    fontSize: 24,
     flex: 1,
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 136, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   ratingText: {
     fontFamily: 'Inter-Bold',
@@ -252,29 +260,38 @@ const styles = StyleSheet.create({
   },
   description: {
     fontFamily: 'Inter-Regular',
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 16,
-    lineHeight: 20,
+    lineHeight: 24,
   },
-  infoRows: {
-    marginBottom: 16,
-  },
-  infoRow: {
+  infoGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  infoText: {
-    fontFamily: 'Inter-Medium',
+  infoCard: {
+    flex: 1,
+    marginHorizontal: 4,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontFamily: 'Inter-Regular',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  infoValue: {
+    fontFamily: 'Inter-Bold',
     fontSize: 14,
-    marginLeft: 8,
+    marginTop: 2,
   },
   amenitiesContainer: {
     marginBottom: 16,
   },
   amenitiesTitle: {
     fontFamily: 'Inter-Bold',
-    fontSize: 16,
+    fontSize: 18,
     marginBottom: 8,
   },
   amenitiesList: {
@@ -284,13 +301,13 @@ const styles = StyleSheet.create({
   amenityTag: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 8,
     marginRight: 8,
     marginBottom: 8,
   },
   amenityText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
+    fontSize: 14,
   },
   typeContainer: {
     marginBottom: 16,
@@ -299,14 +316,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   typeText: {
     fontFamily: 'Inter-Medium',
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 14,
+    marginLeft: 6,
   },
   actionButtons: {
     flexDirection: 'row',
